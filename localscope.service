@@ -1,0 +1,17 @@
+[Unit]
+Description=localscope - local services dashboard
+Documentation=file:%h/github/axeven/localscope/README.md
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=%h/github/axeven/localscope
+ExecStart=%h/github/axeven/localscope/venv/bin/python app.py
+# The dashboard is the thing that tells you when everything else is broken, so
+# it should come back on its own. Note this covers the app dying, not the WSL
+# distro or Docker Desktop being down - that needs an off-host watchdog.
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=default.target

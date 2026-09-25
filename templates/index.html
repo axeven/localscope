@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>localscope</title>
+<style>
+  :root { color-scheme: dark; }
+  body { margin: 0; padding: 24px; background: #14161a; color: #d7dbe0;
+         font: 13px/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+  h1 { font-size: 15px; font-weight: 600; margin: 0 0 4px; letter-spacing: .02em; }
+  .meta { color: #7c848f; margin-bottom: 18px; }
+  table { border-collapse: collapse; width: 100%; }
+  th { text-align: left; font-weight: 600; color: #8b929c; border-bottom: 1px solid #2a2e36;
+       padding: 6px 10px 6px 0; white-space: nowrap; }
+  td { padding: 6px 10px 6px 0; border-bottom: 1px solid #1e2127; vertical-align: top; }
+  tr.down td { background: #2a1518; }
+  .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; }
+  .up { background: #4ea86b; } .down { background: #d9544d; } .idle { background: #545b66; }
+  .tag { color: #7c848f; font-size: 11px; border: 1px solid #2f343d; border-radius: 3px;
+         padding: 0 4px; margin-left: 6px; }
+  .req { color: #d8a657; font-size: 11px; margin-left: 6px; }
+  .muted { color: #7c848f; }
+  a { color: #7fb3e0; text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  .ext { color: #5d6570; font-size: 10px; margin-left: 3px; }
+  .banner { background: #2a1518; border-left: 3px solid #d9544d; padding: 10px 12px;
+            margin-bottom: 18px; border-radius: 3px; }
+  .banner b { color: #f0847e; }
+  h2 { font-size: 13px; color: #8b929c; margin: 26px 0 8px; font-weight: 600; }
+</style>
+</head>
+<body>
+<h1>localscope</h1>
+<div class="meta" id="meta">
+  snapshot {{ snap.generated_at or "pending first poll" }}
+  {% if snap.interval_s %}&middot; polled every {{ snap.interval_s }}s{% endif %}
+  &middot; {{ snap.services|selectattr("up")|list|length }}/{{ snap.services|length }} up
+</div>
+
+<div id="root"></div>
+
+<script>
+const IGNORE = new Set(["kind"]);
+function esc(s) { return String(s).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
+
+// Anything that answers on a url is clickable, and always opens in a new tab so
+// the dashboard stays put behind it.
+function anchor(url, text, cls = "") {
+  if (!url) return `<span class="${cls}">${esc(text)}</span>`;
+  return `<a class="${cls}" href="${esc(url)}" target="_blank" rel="noopener noreferrer"` +
+         ` title="${esc(url)}">${esc(text)}<span class="ext">\u2197</span></a>`;
+}
+
+function row(s) {
+  const ports = s.ports.length ? esc(s.ports.join(", ")) : anchor(s.url, s.url || "-");
+  const cls = s.status === "down" ? "down" : "";
+  const dot = s.status === "up" ? "up" : (s.status === "finished" ? "idle" : "down");
+  const label = { up: "up", finished: "finished", down: "DOWN" }[s.status] || s.status;
+  return `<tr class="${cls}">
+    <td><span class="dot ${dot}"></span>${anchor(s.url, s.name)}
+      ${s.required ? '<span class="req">required</span>' : ""}
+      ${s.discovered ? '<span class="tag">auto</span>' : ""}</td>
+    <td class="muted">${esc(s.kind)}</td>
+    <td class="muted">${esc(s.project || (s.unit ? "systemd" : "-"))}</td>
+    <td class="${s.status === "up" ? "" : "muted"}">${label}</td>
+    <td class="muted">${esc(s.uptime || "-")}</td>
+    <td class="muted">${ports}</td>
+    <td class="${s.status === "down" ? "" : "muted"}">${esc(s.reason)}</td>
+  </tr>`;
+}
+
+function render(snap) {
+  const problems = snap.problems || [];
+  const c = snap.counts || { up: 0, total: 0, finished: 0 };
+  let html = "";
+  if (problems.length) {
+    html += `<div class="banner"><b>${problems.length} down</b><br>` +
+      problems.map(p => `${anchor(p.url, p.name)} &mdash; ${esc(p.reason)}`).join("<br>") + "</div>";
+  }
+  html += `<table><thead><tr><th>name</th><th>check</th><th>source</th><th>state</th>` +
+          `<th>uptime</th><th>port</th><th>last check</th></tr></thead><tbody>` +
+          (snap.services || []).map(row).join("") + "</tbody></table>";
+  if ((snap.orphan_ports || []).length) {
+    html += `<h2>listening ports with no container behind them</h2><table><tbody>` +
+      snap.orphan_ports.map(p => `<tr><td>:${p.port}</td>` +
+        `<td class="muted">${esc(p.addresses)}</td>` +
+        `<td class="muted">${esc(p.process || "unknown process")}</td></tr>`).join("") +
+      `</tbody></table>`;
+  }
+  if ((snap.errors || []).length) {
+    html += `<h2>collector errors</h2><div class="muted">` +
+      snap.errors.map(esc).join("<br>") + "</div>";
+  }
+  document.getElementById("root").innerHTML = html;
+  document.title = problems.length ? `(${problems.length} down) localscope` : "localscope";
+  document.getElementById("meta").textContent =
+    `snapshot ${snap.generated_at || "pending first poll"}` +
+    (snap.interval_s ? ` \u00b7 polled every ${snap.interval_s}s` : "") +
+    ` \u00b7 ${c.up}/${c.total} up` + (c.finished ? ` \u00b7 ${c.finished} finished` : "");
+}
+
+async function tick() {
+  try {
+    const r = await fetch("/api/services", { cache: "no-store" });
+    render(await r.json());
+  } catch (e) {
+    document.getElementById("root").innerHTML =
+      `<div class="banner"><b>dashboard cannot reach its own API</b><br>${esc(e)}</div>`;
+  }
+}
+tick();
+setInterval(tick, 10000);
+</script>
+</body>
+</html>

@@ -1,0 +1,26 @@
+{
+  "poller_interval_s": 30,
+  "alert": {
+    "fail_after": 2,
+    "timeout_s": 10,
+    "retry_delay_s": 3
+  },
+  "required_by_label": "localscope.required",
+  "_schema": {
+    "targets[].kind": "http | docker | tcp | systemd",
+    "targets[].required": "true = pages you, false = dashboard only",
+    "targets[].container": "docker container name (kind=docker)",
+    "targets[].unit": "systemd --user unit name (kind=systemd)",
+    "targets[].url": "http(s) url or host:port (kind=http/tcp)"
+  },
+  "targets": [
+    { "name": "firecrawl-api", "kind": "http", "url": "http://127.0.0.1:3002/", "container": "firecrawl-api-1", "required": true },
+    { "name": "firecrawl-searxng", "kind": "http", "url": "http://127.0.0.1:8088/", "container": "firecrawl-searxng-1", "required": true },
+    { "name": "telechan-web", "kind": "http", "url": "http://127.0.0.1:5000/", "container": "telechan-web", "required": true },
+    { "name": "telechan-watcher", "kind": "docker", "container": "telechan-watcher", "required": true },
+    { "name": "youtube-watcher", "kind": "http", "url": "http://127.0.0.1:8000/", "container": "youtube-watcher", "required": true },
+    { "name": "ggen-viewer", "kind": "http", "url": "http://127.0.0.1:8765/", "container": "ggen-viewer", "required": true },
+    { "name": "hermes-gateway", "kind": "systemd", "unit": "hermes-gateway.service", "required": true },
+    { "name": "localscope-dashboard", "kind": "http", "url": "http://127.0.0.1:8090/", "required": true }
+  ]
+}
