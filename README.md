@@ -62,9 +62,9 @@ Config keys at the top of `targets.json`: `poller_interval_s`, `required_by_labe
 ## Down alerts
 
 `monitor.py` is the half that wakes you up: a Hermes cron job (id
-`340f8cb0ea9a`, `no_agent`, every 5 minutes, delivered to the Telegram home
-DM) runs `~/.hermes/scripts/localscope-monitor.sh`, which execs this repo's
-`monitor.py`. Empty stdout means no message is sent, so a healthy tick is
+`340f8cb0ea9a`, `no_agent`, every 5 minutes, delivered to the Telegram channel
+`-5452968665`) runs `~/.hermes/scripts/localscope-monitor.sh`, which execs this
+repo's `monitor.py`. Empty stdout means no message is sent, so a healthy tick is
 silent and costs nothing.
 
 - 2 consecutive failures (`alert.fail_after`) before a target pages you, so a
